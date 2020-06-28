@@ -314,6 +314,8 @@ The SDR kit has a 40 dB attenuator in the box. (It my case, it rolled under the 
 - Attach the attenuator to the SDR adapter
 - Use the SMA-to-SMA cable to attach to the STM32 board (instead of the antenna)
 
+![An image of the setup](assets/SNE-setup-1.jpg)
+
 ### Making SNE Work
 
 Once SNE comes up, it pops up a browser window connected to a local web server that is running the app. You also get the usual Windows firewall messages.
