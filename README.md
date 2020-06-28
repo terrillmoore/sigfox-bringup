@@ -178,7 +178,11 @@ I  was able to install the ST STLINK drivers after I did all the normal setup (d
 
 ## Quick overview of the app
 
-This is probably somewhere in the disk91 site, but I couldn't find it. The application just built has two serial ports, the debug port (connected to STLINK), running at 115k baud; and the management port, initially not connected, on UART1 (at 9600 baud).  The app uses the facilities in the [IT-SDK][it-sdk] to provide a secure element and a variety of commands for device management. There are two modes of operation, initial, and logged in. In the initial mode, a limited command set is available on UART1:
+This is probably somewhere in the disk91 site, but I couldn't find it. The application just built has two serial ports, the debug port (connected to STLINK), running at 115k baud; and the management port, initially not connected, on UART1 (at 9600 baud).  The app uses the facilities in the [IT-SDK][it-sdk] to provide a secure element and a variety of commands for device management.
+
+The app also uses the STM32L072 embedded EEPROM to store parameters. Thus you only have to set things up once after flashing; after that the app will remember your settings and apply them after each reset.
+
+There are two modes of operation, initial, and logged in. In the initial mode, a limited command set is available on UART1:
 
 ```log
 --- Common
