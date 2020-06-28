@@ -158,7 +158,7 @@ Enter configuration mode as described [above](#uart1).
 |  3.  | `S`         | Save configuration    | Online help
 |  4.  | `R`         | Reboot device         | Online help
 
-Verify on USART2 log that device uses 902 MHz for the uplink
+Verify on USART2 log that device uses 902 MHz for the uplink.
 
 ## Ordering credentials
 
@@ -207,6 +207,15 @@ This seems to take a while -- I tried on a Saturday, and things were still pendi
 See https://build.sigfox.com/development#network-credentials
 
 - Download the decryption tool: https://api.build.sigfox.com/files/5c4b2e498344e36dca5e92e8
+- Build it using WSL Ubuntu.
+- Create a git repo for tracking.
+
+   ```bash
+   git init . && git symbolic-ref HEAD refs/head/main
+   printf "%s\n" .vscode AESd >> .gitignore
+   git add .
+   git commit -m "Inital import"
+   ```
 
 ## Testing with the SDR adapter
 
