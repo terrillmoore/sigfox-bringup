@@ -1,14 +1,62 @@
-# Step-by-step log of Sigfox bringup
+# Step-by-step log of Sigfox Bring-up
+
+This documents work done to bring up a Sigfox node based on a Murata module, using the Disk91 repostories. Then we will migrate the code to an Arduino environment in order to support the MCCI Catena family of IOT products.
+
+<!--
+  This TOC uses the VS Code markdown TOC extension AlanWalk.markdown-toc.
+  We strongly recommend updating using VS Code, the markdown-toc extension and the
+  bierner.markdown-preview-github-styles extension. Note that if you are using
+  VS Code 1.29 and Markdown TOC 1.5.6, https://github.com/AlanWalk/markdown-toc/issues/65
+  applies -- you must change your line-ending to some non-auto value in Settings>
+  Text Editor>Files.  `\n` works for me.
+-->
+<!-- markdownlint-disable MD033 MD004 -->
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable -->
+<!-- TOC depthFrom:2 updateOnSave:true -->
+
+- [Current Status](#current-status)
+- [Required materials](#required-materials)
+- [Required Installations](#required-installations)
+        - [Source code](#source-code)
+        - [Ac6 build system](#ac6-build-system)
+        - [Importing the Projects](#importing-the-projects)
+- [Modify hardware](#modify-hardware)
+- [Build the project](#build-the-project)
+- [Downloading](#downloading)
+- [Quick overview of the app](#quick-overview-of-the-app)
+- [Connecting UARTS](#connecting-uarts)
+        - [UART1](#uart1)
+        - [UART2](#uart2)
+- [Testing](#testing)
+- [Configuring for US](#configuring-for-us)
+- [Ordering credentials](#ordering-credentials)
+        - [Creating a Product](#creating-a-product)
+        - [Ordering Credentials](#ordering-credentials)
+        - [Decrypting Credentials](#decrypting-credentials)
+- [Testing with the SDR adapter](#testing-with-the-sdr-adapter)
+        - [Sigfox SDR Adapter USB Descriptors](#sigfox-sdr-adapter-usb-descriptors)
+        - [Connecting the SDR adapter to the B-L072Z-LRWAN1](#connecting-the-sdr-adapter-to-the-b-l072z-lrwan1)
+        - [Making SNE Work](#making-sne-work)
+- [References](#references)
+
+<!-- /TOC -->
+<!-- markdownlint-restore -->
+<!-- Due to a bug in Markdown TOC, the table is formatted incorrectly if tab indentation is set other than 4. Due to another bug, this comment must be *after* the TOC entry. -->
+
+## Current Status
+
+We have successfully connected an ST [B-L072Z-LRWAN1][B-L072Z-LRWAN1] to the [Sigfox Network Emulator][SNE] (SNE) using the [Sigfox SDR adapter][2]. We're waiting for credentials
 
 ## Required materials
 
-- STM32 LoRa Discovery Kit B-L072Z-LRWAN1
+- STM32 LoRa Discovery Kit [B-L072Z-LRWAN1][B-L072Z-LRWAN1]
 
-- SMA antenna for above for 915 or 868 MHz
+- SMA antenna for above for 915 MHz (as we're in the US)
 
-- Sigfox gateway
+- Sigfox RF test kit ([SDR adapter][2])
 
-- Sigfox RF test kit (SDR adapter)
+- Sigfox [Access Station Micro](https://support.sigfox.com/products#micro) (once we have credentials)
 
 ## Required Installations
 
@@ -16,9 +64,9 @@
 
 Make a directory (I chose `c:/mcci/projects/shetland/s`) and clone the following repositories into the directory.
 
-- git@github.com:disk91/itsdk-example-murata-lora.git
-- git@github.com:disk91/itsdk-example-sigfox-sx1276.git
-- git@github.com:disk91/stm32-it-sdk.git
+- `git@github.com:disk91/itsdk-example-murata-lora.git` or https://github.com/disk91/itsdk-example-murata-lora
+- `git@github.com:disk91/itsdk-example-sigfox-sx1276.git` or https://github.com/disk91/itsdk-example-sigfox-sx1276
+- `git@github.com:disk91/stm32-it-sdk.git` or https://github.com/disk91/stm32-it-sdk
 
 ### Ac6 build system
 
@@ -36,34 +84,40 @@ Make a directory (I chose `c:/mcci/projects/shetland/s`) and clone the following
 
    I accepted the default; you have to remember this, as this is where your projects get placed.
 
-- Follow the instructions in the video https://www.youtube.com/watch?v=VEWrr4t8ujo -- it's got some errors, and you'll find that the Murata LoRa project hasn't been updated.  Key moments:
+### Importing the Projects
 
-  - https://youtu.be/VEWrr4t8ujo?t=107 shows how to import the projects. File>Import>Existing Projects into Workspace, and point to your example directory from above.
+Follow the instructions in the video https://www.youtube.com/watch?v=VEWrr4t8ujo -- it's got some errors, and if you use the[ Murata LoRa project](https://github.com/disk91/itsdk-example-murata-lora) used in the video, you'll find it hasn't been updated for version 1.5 of the IT SDK.
 
-  - You need to link the project to the SDK, which you do https://youtu.be/VEWrr4t8ujo?t=137 by expanding the project in the project explorer. Right click on the project top-level; then `New>Folder`, `Advanced>>`, `[x] Link to alternate location`, and select your `stm32-it-sdk` directory.
+- https://youtu.be/VEWrr4t8ujo?t=107 shows how to import the projects. File>Import>Existing Projects into Workspace, and point to your example directory from above.
+
+- You need to link the project to the SDK, which you do by [expanding the project in the project explorer](https://youtu.be/VEWrr4t8ujo?t=137 ). Right click on the project top-level; then `New>Folder`, `Advanced>>`, `[x] Link to alternate location`, and select your `stm32-it-sdk` directory.
 
   **Very important:** his example repositories already have links to an SDK, but they're wrong. So you have to delete them and re-add them. There are two places this must be done.
 
   **Very important:** you must work with the release configuration, but the default configuration is debug.
 
+  Adding the source files:
+
   - Right click the project, then `Properties>C/C++ General/Paths and Symbols`. Select the `Source Location` tab on the right panel.
-    - select Release configuration.
-    - delete the old stm32sk src link; it will be the third or fourth line.
-    - click `Add Folder...`
-    - expand `stm32-it-sdk` and add `src`.
-    - **Don't click apply yet**.
+  - select Release configuration.
+  - delete the old stm32sk src link; it will be the third or fourth line.
+  - click `Add Folder...`
+  - expand `stm32-it-sdk` and add `src`.
+  - **Don't click apply yet**.
+
+  Adding the include files:
 
   - Select `Properties>C/C++ Build>Settings`
-    - Select `Tool Settings` tab
-    - Select `MCU GCC Compiler>Includes`.
-    - Again, remove the old `stm32 sdk/inc` entry, as it's for his system not yours (select it, and then press the icon with the red 'x' right above).
-    - Now ad the new, using the icon with the green '+' right above, and select the SDK `inc` directory.
+  - Select `Tool Settings` tab
+  - Select `MCU GCC Compiler>Includes`.
+  - Again, remove the old copy of the `stm32 sdk/inc` entry, as it's for his system not yours (select it, and then press the icon with the red 'x' right above).
+  - Now add a new link to your imported SDK, using the icon with the green '+' right above, and select the SDK `inc` directory.
 
 - Then apply and say OK.
 
-- Change the configuration to `Release` and build.
+- Change the configuration to `Release`.
 
-- The rest of the information can be ignored.
+The other information in the video, although interesting, is not relevant to this project.
 
 ## Modify hardware
 
@@ -77,7 +131,9 @@ Refer to https://github.com/aureleq/muRataSigfox.
 
 ## Build the project
 
-You'll get several warnings. You can select the Console tab to watch progress. At the end, I got:
+After changing the configuration to `Release`, build the project.
+
+You'll get several warnings. You can select the `Console` tab to watch progress. At the end, I got:
 
 ```console
 Building target: murata-sigfox.elf
@@ -112,11 +168,91 @@ unused variable 'ret' [-Wunused-variable]	project_main.c	/murata-sigfox/Core/Src
 
 ## Downloading
 
-I  was able to install the STLINK  drivers after I did all the normal setup (drivers, etc. from ST). Then I said Project: Run As..>AC6 application. Followng that, blinky stopped and I got different light patterns.. and it seems to work.
+I plugged in the B-L072Z-LRWAN1 via the USB STLINK port (CN7). From the factory, it booted up and started running a blinky application. On the PC, I got three interfaces:
+
+- The STLINK interface
+- A CDC ACM interface
+- A mass storage interface (the ARM mbed mass storage download thing)
+
+I  was able to install the ST STLINK drivers after I did all the normal setup (drivers, etc. from ST). Then I said Project: Run As..>AC6 application. Following that, blinky stopped and I got different light patterns.. and based on debug logs on UART2 (via the STLINK), things seemed to be working.
+
+## Quick overview of the app
+
+This is probably somewhere in the disk91 site, but I couldn't find it. The application just built has two serial ports, the debug port (connected to STLINK), running at 115k baud; and the management port, initially not connected, on UART1 (at 9600 baud).  The app uses the facilities in the [IT-SDK][it-sdk] to provide a secure element and a variety of commands for device management. There are two modes of operation, initial, and logged in. In the initial mode, a limited command set is available on UART1:
+
+```log
+--- Common
+?          : print help
+!          : print copyright
+v          : print version
+o          : print OK
+--- ConfigMng
+c          : print config
+C          : print shadow config
+```
+
+The command interpreter is very simple. It does not echo commands, and prompts by printing `OK` (or `KO` in case of error).
+
+You change to logged-in mode by typing the password, initially `changeme` and pressing enter. Once successfully logged in, `?` displays an augmented set of commands.
+
+```log
+--- Common
+?          : print help
+!          : print copyright
+v          : print version
+o          : print OK
+--- ConfigMng
+c          : print config
+C          : print shadow config
+OK
+--- Common
+?          : print help
+!          : print copyright
+v          : print version
+o          : print OK
+X          : exit console
+R          : reset device
+l / L      : switch LowPower ON / OFF
+s          : print device state
+t          : print current time in S
+T          : print current temperature in oC
+b          : print battery level
+B          : print VCC level
+r          : print last Reset Cause
+--- ErrorMng
+e          : print errors log
+E          : Clear the error logs
+--- SecureStore
+SS:0:xxxx  : change the secure store dyn Key (12B)
+SS:1:xxxx  : change the console password (max 15 char)
+ss:S       : Sigfox key restore factory setting
+SS:2:xxxx  : change the sigfox key (16B hex)
+ss:Y       : Encryption restore factory setting
+SS:E:xxxx  : Encrypt change AES Master Key (16B hex)
+SS:F:xxxx  : Encrypt change Shared Key (4B hex)
+SS:G:xxxx  : Encrypt change Nonce (1B hex)
+SS:H:xxxx  : Encrypt change Speck Key (8B hex)
+--- ConfigMng
+c          : print config
+C          : print shadow config
+S          : commit configuration
+F          : restore factory defaults
+m          : see eeprom configuration
+SC:N:x     : sdk.activeNetwork 1:SFX 2:LoRa
+SC:R:xxxx  : sdk.activeRegion __PLWAN_REGION_xx
+SC:8:xx   : sigfox.txPower 00-22dB (decimal) 99 (default)
+SC:9:xx   : sigfox.speed 0(default)/100/600bps (decimal)
+SC:A:xx   : sigfox.rcz [01,02,3c,04,05]
+SC:B:x    : sigfox.sgfxKey 0:PRIVATE 1:PUBLIC
+SC:C:8hex : sigfox.initialPac 8B hex string
+SC:D:4hex : sigfox.deviceId 4B hex string
+```
+
+The initial configuration is for EU and will need to be adjusted. We'll do that below.
 
 ## Connecting UARTS
 
-There are two UARTs.
+There are two UARTs. Both need to be connected and open. I used Tera Term as the terminal emulator.
 
 ### UART1
 
@@ -161,6 +297,8 @@ Enter configuration mode as described [above](#uart1).
 Verify on USART2 log that device uses 902 MHz for the uplink.
 
 ## Ordering credentials
+
+Ordering credentials requires creating a product, requesting credentials, decrypting credentials, and then getting the credentials into the eval board.
 
 ### Creating a Product
 
@@ -229,6 +367,8 @@ There are two software packages supporting the SDR adapter.
 SNE is simply an application that runs on Windows or Linux. RSA is a full boot image, and requires that you boot a VM into Ubuntu. Although RSA is interesting, we'll be using SNE.
 
 It was tricky to get the SDR adapter to work with VMware. On my Surface Pro 6, I had to plug into the root port; it wouldn't work at all with VMware when plugged into a hub. Then I had to launch the app several times in the VM. The device went through a number of personalities during that process. I had to repeatedly tell VMware "please attach to the VM"; possibly the device ID was changing. And during that time the app would time out and I'd have to restart.
+
+### Sigfox SDR Adapter USB Descriptors
 
 The SDR adapter started out as a DFU device, but ended up as the following (from USB View):
 
@@ -356,13 +496,30 @@ Once SNE comes up, it pops up a browser window connected to a local web server t
 
 ## References
 
-[Hardware resources](https://www.st.com/en/evaluation-tools/b-l072z-lrwan1.html#resource):
+Hardware Resources:
 
-- [Schematics](https://www.st.com/resource/en/schematic_pack/b-l072z-lrwan1_sch.zip) -- we have a rev D-03 board, and the schematics on line are for rev D-01, close enough.
-- [Board reference manual][1]
+- [B-L072Z-LRWAN1](https://www.st.com/en/evaluation-tools/b-l072z-lrwan1.html#resource) STM32 Discovery Board
+
+  - [Schematics](https://www.st.com/resource/en/schematic_pack/b-l072z-lrwan1_sch.zip) -- we have a rev D-03 board, and the schematics on line are for rev D-01, close enough.
+  - [Board reference manual][1]
+
+- Sigfox [SDR Adapter][2]
+
+Software resources:
+
+- [IT-SDK][it-sdk]
+- [Sigfox Network Emulator][SNE], download [here][SNE-Download]
 
 [1]: https://www.st.com/resource/en/user_manual/dm00329995-discovery-kit-for-lorawan-sigfox-and-lpwan-protocols-with-stm32l0-stmicroelectronics.pdf
 
 [2]: https://build.sigfox.com/sdr-dongle
 
 [3]: https://youtu.be/BnFHdZRMUjc
+
+[SNE]: https://support.sigfox.com/docs/sigfox-network-emulator-user-manual
+
+[SNE-Download]: https://support.sigfox.com/files/5e6203010886be5343623b81
+
+[B-L072Z-LRWAN1]: https://www.st.com/en/evaluation-tools/b-l072z-lrwan1.html
+
+[it-sdk]: https://github.com/disk91/stm32-it-sdk
